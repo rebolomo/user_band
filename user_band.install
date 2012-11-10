@@ -1,0 +1,84 @@
+﻿<?php
+// $Id: user_band.install,v 1.3 2011/04/08 13:52:44 Felix $
+
+/**
+ * Implementation of hook_schema().
+ */
+function user_band_schema() {
+  $schema['user_band_user'] = array(
+    'description' => '绑定用户表',
+    'fields' => array(
+      'uid' => array(
+        'type' => 'int',
+        'description' => '关联 users 表',
+        'unsigned' => true,
+        'not null' => true,
+        'default' => 0,
+      ),
+      'thirdpart_uid' => array(
+        'type' => 'varchar',
+        'length' => 32,
+        'not null' => TRUE,
+        'default' => '',
+        'description' => '第三方用户 id',
+      ),
+      'thirdpart_type' => array(
+        'type' => 'varchar',
+        'length' => 255,
+        'not null' => TRUE,
+        'default' => '',
+        'description' => '第三方平台',
+      ),
+      'token' => array(
+        'type' => 'text',
+        'description' => '访问令牌等信息',
+        'not null' => true,
+        'serialize' => true,
+        'size' => 'medium'
+      ),
+      'config' => array(
+        'type' => 'text',
+        'description' => '用户设置等信息',
+        'serialize' => true,
+        'not null' => true,
+        'size' => 'medium'
+      ),
+    ),
+    'unique keys' => array(
+      'thirdpart_uid_type' => array('thirdpart_uid','thirdpart_type'),
+    ),
+    'primary key' => array('uid'),
+  );
+  
+  return $schema;
+}
+
+/**
+ * Implementation of hook_install().
+ */
+function user_band_install() {
+  //drupal_install_schema('user_band');
+}
+
+/**
+ * Implementation of hook_uninstall().
+ */
+function user_band_uninstall() {
+  //drupal_uninstall_schema('user_band');
+  db_query("DELETE FROM {variable} WHERE name LIKE 'user_band_%'");
+  cache_clear_all('variables', 'cache');
+}
+
+/**
+ * @Implement of hook_requirements()
+ */
+function user_band_requirements($phase) {
+  $requirements = array();
+  
+  if (!function_exists('json_decode') || !function_exists('hash_hmac')) {
+    $requirements['php']['description'] = '必须开启 json、hash 扩展库';
+    $requirements['php']['severity'] = REQUIREMENT_ERROR;
+  }
+  
+  return $requirements;
+}

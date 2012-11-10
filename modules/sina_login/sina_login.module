@@ -1,0 +1,111 @@
+<?php
+// $Id: sina_login.info,v 0.1 20110523 Felix $
+
+/**
+ * @file
+ * 实现新浪微博用户共享登录
+ */
+/**
+ * Implementation of hook_menu.
+ */
+function sina_login_menu() {
+  
+  $items['sina/login'] = array(
+    'description' => '新浪微博用户登录或者绑定',
+    'page callback' => 'sina_login_page_login',
+    'access callback' => 'user_is_anonymous',
+    'type' => MENU_CALLBACK,
+    'file' => 'sina_login.pages.inc',
+  );
+  $items['sina/callback'] = array(
+    'title' => '新浪微博共享登录页面跳转同步通知路径',
+    'page callback' => 'sina_login_page_callback',
+    'access callback' => 'user_is_anonymous',
+    'type' => MENU_CALLBACK,
+    'file' => 'sina_login.pages.inc',
+  );
+  $items['admin/settings/band/sina'] = array(
+    'title' => '新浪微博共享登录',
+    'page callback' => 'drupal_get_form',
+    'page arguments' => array('sina_login_admin_settings'),
+    'access arguments' => array('administer site configuration'),
+    'file' => 'sina_login.admin.inc',
+  );
+  $items['sina/post/%/%'] = array(
+    'title' => '新浪微博登录发微博',
+    'page callback' => 'sina_login_post',
+	'page arguments' => array(2,3),
+	'access callback' => true,
+	'type' => MENU_CALLBACK,
+    'file' => 'sina_login.pages.inc',
+  );
+  
+  return $items;
+}
+
+function sina_login_get_config(){
+	$sina_config['app_key'] = variable_get('sina_login_app_key', NULL);
+	$sina_config['app_secret'] = variable_get('sina_login_app_secret', NULL);
+	$sina_config['return_url'] = 'http://'.$_SERVER['HTTP_HOST'].'/sina/callback';
+
+	return $sina_config;
+}
+
+/**
+ * 使用新浪微博帐号登录或绑定帐号的权限
+ */
+function sina_login_is_access() {
+  global $user;
+  return $user->uid > 0 || variable_get('sina_login_is_login', 1);
+}
+
+/**
+ * Implementation of hook_form_alter
+ */
+function sina_login_form_alter(&$form, $form_state, $form_id) {
+  if (variable_get('sina_login_is_login', 1) && ($form_id == 'user_login_block' || $form_id == 'user_login')) {
+    $form['sina_login_button'] = array(
+      '#type' => 'item',
+      '#value' => sina_login_render_button(),
+      '#weight' => 11,
+    );
+  }
+  return $form;
+}
+
+function sina_login_render_button(){
+	//$html = '<a href="/sina/login" alt="使用新浪微博帐号登录"><img width=126 height=24 src="/sites/all/modules/user_band/images/sina_login.png"></a>';
+	$html = l('<img width=126 height=24 src="' . drupal_get_path('module','user_band') . '/images/sina_login.png">','sina/login', array('html'=>TRUE));
+	return $html;
+}
+
+/**
+ * @Implement of hook_user_delete()
+ */
+function sina_login_user_delete($account) {
+  //switch ($op) {
+  //  case 'delete':
+      db_query("DELETE FROM {user_band_user} WHERE uid = :uid AND thirdpart_type = 'sina'", array( ':uid' => $account->uid ));
+  //  break;   
+  //}
+}
+
+//	REBOL edit, submit weibo automatically when we publish articles on site
+function sina_login_node_insert($node) {
+	require_once("lib/weibooauth.php");
+	module_load_include('inc','custom_url','custom_url.pages');
+	$sina_config = sina_login_get_config();
+	//	REBOL edit
+	$c = new SaeTClientV2( $sina_config['app_key'] , $sina_config['app_secret'] , $_SESSION['sina_access_token']['access_token'] );
+	$body = yhmyt_common_cut_str($node->title, 60, 0, 'UTF-8')  . '...' . '促销详情: ' . 'http://'.$_SERVER['HTTP_HOST'] . base_path() . 'node/' . $node->nid;
+	$ret = $c->update( $body );	//发送微博
+	if ( isset($ret['error_code']) && $ret['error_code'] > 0 ) {
+		echo "<p>发送失败，错误：{$ret['error_code']}:{$ret['error']}</p>";
+	} else {
+		echo "<p>发送成功</p>";
+	}
+}
+
+
+
+

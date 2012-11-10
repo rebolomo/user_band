@@ -1,0 +1,6 @@
+; $Id: qq_login.info,v 0.1 20110603 Felix $
+name = QQ LOGIN API
+dependencies[] = user_band
+description = QQ用户登录接口
+core = 7.x
+package = "User Login"

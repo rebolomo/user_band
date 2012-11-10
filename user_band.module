@@ -1,0 +1,224 @@
+<?php
+
+/*******************************************************************************
+ * Hook Functions (Drupal)
+ ******************************************************************************/
+
+/**
+ * Implementation of hook_menu().
+ */
+function user_band_menu(){
+	$items = array();
+	// TO DO
+	$items['admin/settings/band'] = array(
+		'title' => '共享登录设置',
+		'description' => '用户共享登录设置.',
+		'position' => 'right',
+		'weight' => -5,
+		'page callback' => 'system_admin_menu_block_page',
+		'access arguments' => array('administer site configuration'),
+		'file' => 'system.admin.inc',
+		'file path' => drupal_get_path('module', 'system'),
+	);
+	//绑定过程的Email输入页面
+	$items['user/band/email/%'] = array(
+		'title' => '输入Email',
+		'description' => '输入Email.',
+		'page callback' => 'user_band_email',
+		'page arguments' => array(3),
+		'access callback' => true,
+		'type' => MENU_CALLBACK,
+		'file' => 'user_band.page.inc',
+	);
+	return $items;
+}
+
+/*
+ * 处理整个过程的入口，供其他模块调用
+ * $ouser array 传入的外部应用返回的user信息
+ * 例如：
+ * $ouser = array(
+ * 			'ouid'=>123456,				第三方平台用户ID号
+ * 			'name'=>'felix', 			用户名或者昵称
+ * 			'email'=>'spiritfelix@gmail.com',	Email地址
+ * 			'token' => 'string',  		令牌信息
+ * 			'from'=>'sina'				用户信息来源
+ * )
+ * $jump 是否跳转回首页，默认为true，即跳转回首页
+ */
+function user_band_bandapi($ouser,$jump=true){
+	// TO DO: 判断$ouser中的用户数据
+	if(!isset($ouser['ouid'])){ //$ouser中没有数据
+		return false;
+	}
+	if(!user_band_is_banded($ouser)){ //如果已经绑定，则不执行绑定过程
+		global $user;
+		if($user->uid > 1){ //已经登陆 ( >1 for test )
+			// TO DO: 将$ouser数据与当前登录的用户进行绑定
+			user_band_band($user->uid,$ouser);
+		}else{
+			//未登录状态
+			if(isset($ouser['email'])){ //$ouser中有Email
+				$uid = user_band_get_uid_by_email($ouser['email']);
+				if($uid == 0){ //$ouser中的Email尚未注册
+					// TO DO: 用Email进行注册
+					$user = user_band_reg($ouser);
+					$uid = $user->uid;
+				}
+				user_band_band($uid,$ouser);
+				if($jump){  // TO DO： 研究一下为什么这里，只未登录状态后，会跳转回 user页面，不执行以下两句的时候，留在当前页面还是登录状态
+					$account=user_load($uid);
+					//user_external_login($account);	
+					$form_state['uid'] = $uid;
+					user_login_submit(array(), $form_state);
+				}
+				
+			}else{
+				// TO DO: 弹出新窗口，让用户输入Email地址
+				$url = 'user/band/email/'.base64_encode(urlencode(serialize($ouser)));
+				drupal_goto($url);
+			}
+		}	
+	}	
+	if($jump){
+		drupal_goto(); // jump to <front>
+	}	
+}
+
+/*
+ * 处理绑定过程
+ * $uid 当前登录用户的uid
+ * $ouser 获取到的外部应用的用户信息
+ */
+function user_band_band($uid,$ouser){
+	// TO DO:
+	$thirdpart_uid = $ouser['ouid'];
+	$thirdpart_type = $ouser['from'];
+	$token = $ouser['token'];
+
+	db_query("REPLACE INTO {user_band_user} (uid, thirdpart_uid, thirdpart_type, token, config) VALUES (:uid, :tuid, :type, :token, '')",array(':uid' => $uid, ':tuid' => $thirdpart_uid, ':type' => $thirdpart_type, ':token' => serialize($token)));
+
+}
+
+/* 
+ * reg user
+ * $account = array(
+ * 			'name'=>'felix', 			用户名或者昵称
+ * 			'email'=>'spiritfelix@gmail.com',	Email地址
+ * )
+ * return $user
+*/
+function user_band_reg($account){
+	// TO DO: reg new user by function user_save()
+	$pass = user_password();// 生成随机10位密码
+	$user_info = array(
+		'name'=>user_band_new_name($account['name']), //返回处理后的name作为用户的name进行注册
+		//'name'=>$account['name'],
+		'pass'=>$pass, 
+		'mail'=>$account['email'],
+		'status'=>1,
+		'init'=>$account['email'],
+		
+	);
+	
+	//var_dump($user_info);
+	
+	if (!$newuser = user_save('', $user_info)) {
+		drupal_set_message('无法注册帐号', 'error');
+		drupal_goto('user');
+		return ;
+	}else{
+		//这里必须进行第二次调用user_save，
+		//第一次insert新用户的时候，name的值被email_registration.module重置为Email前缀，
+		//再次调用user_save的时候才能将第三方的用户名写入
+		user_save($newuser, $user_info);		 
+		drupal_set_message('已为你成功创建帐号，随机密码：'.$pass.'，如果你需要从本站直接登录，请记住此密码或'.l('立即修改', 'user/'.$newuser->uid.'/edit'));
+		if($account['name'] <> $user_info['name']){
+			drupal_set_message('您的用户名 '.$account['name'].' 已经被注册，您可以使用新的用户名 '.$user_info['name'].' ，您也可以'.l('修改用户名', 'user/'.$newuser->uid.'/edit'));
+		}
+		//	REBOL edit, cause $user = user_band_reg($ouser); the global user is replaced, so the new created user is logined.
+		//	REBOL edit, reset the pass for this user, then we can login with name and pass, thus we can login to phpbb automatically.
+		//user_external_login($newuser, array('name'=>$newuser->name,'pass'=>$pass));
+		$form_state['uid'] = $newuser->uid;
+    user_login_submit(array(), $form_state);
+		//	REBOL add, send the 
+		$params['account'] = $newuser;
+		$params['pass'] = $pass;
+		$message = drupal_mail('user_band', 'post_login_by_third_party', $account['email'], user_preferred_language($newuser), $params, FALSE);
+		//user_external_login($newuser); //为新用户登录  PS:这里不清楚为啥没执行这句的时候就已经登陆了...
+		return $newuser;
+	}	
+	
+}
+
+/*
+ * build name for user
+ * 如果用户name已经存在，则在后面加上_1,_2以此类推
+ */
+function user_band_new_name($name){
+	// TO DO: build name for new user
+	if (db_query("SELECT count(*) FROM {users} WHERE LOWER(name) = LOWER(:name)", array(':name' => $name))->fetchField() > 0) {
+      // find the next number available to append to the name
+      $sql = "SELECT SUBSTRING_INDEX(name,'_',-1) FROM {users} WHERE name REGEXP '%s' ORDER BY CAST(SUBSTRING_INDEX(name,'_',-1) AS UNSIGNED) DESC LIMIT 1";
+      $nameidx = db_query($sql, '^'. $name .'_[0-9]+$')->fetchField();
+      $name .= '_'. ($nameidx + 1);
+    }
+    return $name;
+}
+
+function user_band_get_uid_by_email($email){
+	// TO DO: get uid by email
+	//$user_info = array('mail'=>$email);
+	//$user = user_load($user_info);
+	$user = user_load_by_mail($email);
+	if($user && $user->uid > 0){
+		$uid = $user->uid; 
+	}else{
+		$uid = 0;
+	}
+	return $uid;	
+}
+
+function user_band_get_uid_by_name($name){
+	// TO DO: get uid by email
+	//$user_info = array('mail'=>$email);
+	//$user = user_load($user_info);
+	$user = user_load_by_name($name);
+	if($user && $user->uid > 0){
+		$uid = $user->uid; 
+	}else{
+		$uid = 0;
+	}
+	return $uid;	
+}
+
+/*
+ * 判断该用户是否已绑定
+ * $ouser结构同api函数
+ * 
+ * return true 已经绑定  
+ * 		  false 尚未绑定
+ */
+function user_band_is_banded($ouser){
+
+	$thirdpart_uid = $ouser['ouid'];
+	$thirdpart_type = $ouser['from'];
+	$token = $ouser['token'];
+
+	$result = db_query("SELECT uid FROM {user_band_user} WHERE thirdpart_uid = :thirdpart_uid AND thirdpart_type = :thirdpart_type", array(':thirdpart_uid' => $thirdpart_uid, 'thirdpart_type' => $thirdpart_type));
+	$uid = 0;
+	//if ($user = db_fetch_object($result)) {
+	if ($user = $result->fetchObject()) {
+		$uid = $user->uid;
+	}
+	if($uid>0){ // 如果已经绑定，直接置为登录状态
+		$account=user_load($uid);
+		//user_external_login($account);
+		$form_state['uid'] = $uid;
+    user_login_submit(array(), $form_state);
+		return TRUE;
+	}else{
+		return FALSE;
+	}
+}
+

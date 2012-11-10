@@ -1,0 +1,6 @@
+; $Id: sina_login.info,v 0.1 20110525 Felix $
+name = SINA LOGIN API
+dependencies[] = user_band
+description = 新浪微博用户登录接口
+core = 7.x
+package = "User Login"

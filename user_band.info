@@ -1,0 +1,6 @@
+; $Id: user_band.info $
+name = "User Band API"
+description = "Band user while user login by other system."
+core = 7.x
+dependencies[] = user
+package = "User Login"
