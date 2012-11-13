@@ -55,6 +55,8 @@ function sina_login_page_callback(){
 		$ouid = $uid_get['uid'];
 		$user_message = $c->show_user_by_id( $ouid);//根据ID获取用户等基本信息
 		$name = $user_message['screen_name'];
+		//	REBOL todo, add user avatar from weibo
+		//$user_basic = $c->account_profile_basic($ouid);
 		//$c = new WeiboClient( $sina_config['app_key'] , $sina_config['app_secret'] , $oauth_token , $oauth_secret );
 		//$userInfo = $c->verify_credentials();
 		//$ouid = $userInfo['id'];  

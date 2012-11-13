@@ -59,7 +59,7 @@ function qq_login_form_alter(&$form, $form_state, $form_id) {
   if (variable_get('qq_login_is_login', 1) && ($form_id == 'user_login_block' || $form_id == 'user_login')) {
     $form['qq_login_button'] = array(
       '#type' => 'item',
-      '#value' => qq_login_render_button(),
+      '#markup' => qq_login_render_button(),
       '#weight' => 10,
     );
   }
@@ -68,7 +68,7 @@ function qq_login_form_alter(&$form, $form_state, $form_id) {
 
 function qq_login_render_button(){
 	//$html = '<a href="/qq/login" alt="使用QQ帐号登录"><img width=159 height=33 src="/sites/all/modules/user_band/images/qq_login.png"></a>';
-	$html = l('<img width=126 height=24 src="' . drupal_get_path('module','user_band') . '/images/qq_login.png">','sina/login', array('html'=>TRUE));
+	$html = l('<img width=126 height=24 src="' . drupal_get_path('module','user_band') . '/images/qq_login.png">','qq/login', array('html'=>TRUE));
 	return $html;
 }
 

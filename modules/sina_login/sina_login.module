@@ -66,7 +66,7 @@ function sina_login_form_alter(&$form, $form_state, $form_id) {
   if (variable_get('sina_login_is_login', 1) && ($form_id == 'user_login_block' || $form_id == 'user_login')) {
     $form['sina_login_button'] = array(
       '#type' => 'item',
-      '#value' => sina_login_render_button(),
+      '#markup' => sina_login_render_button(),
       '#weight' => 11,
     );
   }
@@ -90,21 +90,6 @@ function sina_login_user_delete($account) {
   //}
 }
 
-//	REBOL edit, submit weibo automatically when we publish articles on site
-function sina_login_node_insert($node) {
-	require_once("lib/weibooauth.php");
-	module_load_include('inc','custom_url','custom_url.pages');
-	$sina_config = sina_login_get_config();
-	//	REBOL edit
-	$c = new SaeTClientV2( $sina_config['app_key'] , $sina_config['app_secret'] , $_SESSION['sina_access_token']['access_token'] );
-	$body = yhmyt_common_cut_str($node->title, 60, 0, 'UTF-8')  . '...' . '促销详情: ' . 'http://'.$_SERVER['HTTP_HOST'] . base_path() . 'node/' . $node->nid;
-	$ret = $c->update( $body );	//发送微博
-	if ( isset($ret['error_code']) && $ret['error_code'] > 0 ) {
-		echo "<p>发送失败，错误：{$ret['error_code']}:{$ret['error']}</p>";
-	} else {
-		echo "<p>发送成功</p>";
-	}
-}
 
 
 

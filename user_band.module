@@ -112,7 +112,8 @@ function user_band_reg($account){
 	// TO DO: reg new user by function user_save()
 	$pass = user_password();// 生成随机10位密码
 	$user_info = array(
-		'name'=>user_band_new_name($account['name']), //返回处理后的name作为用户的name进行注册
+		//	REBOL edit, verify the name in email and name form.
+		'name'=>$account['name'],//user_band_new_name($account['name']), //返回处理后的name作为用户的name进行注册
 		//'name'=>$account['name'],
 		'pass'=>$pass, 
 		'mail'=>$account['email'],
@@ -120,6 +121,17 @@ function user_band_reg($account){
 		'init'=>$account['email'],
 		
 	);
+	if(isset($account['avatar'])) {
+		//	创建图片
+		$file = remote_stream_wrapper_file_load_by_uri($account['avatar']);
+		if (!$file) {
+			$file = remote_stream_wrapper_file_create_by_uri($account['avatar']);
+			$file = file_save($file);
+		}
+		//	REBOL note, cause this is the first time we create a node, it will call drupal_write_record, see node_save for more information
+		//$user_info['picture'] = $file;
+		$user_info['picture'] = $file->fid;
+	}
 	
 	//var_dump($user_info);
 	
@@ -131,7 +143,7 @@ function user_band_reg($account){
 		//这里必须进行第二次调用user_save，
 		//第一次insert新用户的时候，name的值被email_registration.module重置为Email前缀，
 		//再次调用user_save的时候才能将第三方的用户名写入
-		user_save($newuser, $user_info);		 
+		//user_save($newuser, $user_info);		 
 		drupal_set_message('已为你成功创建帐号，随机密码：'.$pass.'，如果你需要从本站直接登录，请记住此密码或'.l('立即修改', 'user/'.$newuser->uid.'/edit'));
 		if($account['name'] <> $user_info['name']){
 			drupal_set_message('您的用户名 '.$account['name'].' 已经被注册，您可以使用新的用户名 '.$user_info['name'].' ，您也可以'.l('修改用户名', 'user/'.$newuser->uid.'/edit'));
@@ -145,7 +157,7 @@ function user_band_reg($account){
 		$params['account'] = $newuser;
 		$params['pass'] = $pass;
 		$message = drupal_mail('user_band', 'post_login_by_third_party', $account['email'], user_preferred_language($newuser), $params, FALSE);
-		//user_external_login($newuser); //为新用户登录  PS:这里不清楚为啥没执行这句的时候就已经登陆了...
+
 		return $newuser;
 	}	
 	

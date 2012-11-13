@@ -81,6 +81,7 @@ function qq_login_page_callback(){
 	$ouser = array(
 		'ouid'=> $result['openid'],
 		'name'=> $arr['nickname'],
+		'avatar' => $arr['figureurl_2'],
 		'token' => array('oauth_token'=>$result['oauth_token'],'oauth_token_secret'=>$result['oauth_token_secret']),
 		'from'=>'qq',
 		);
